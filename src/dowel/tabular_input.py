@@ -34,6 +34,11 @@ class TabularInput:
         :param val: Value that is to be stored in the table.
         """
         self._dict[self._prefix_str + str(key)] = val
+    
+    def delete(self, key):
+        """Delete a key from entries for the table
+        """
+        self._dict.pop(key)
 
     def mark(self, key):
         """Mark key as recorded."""

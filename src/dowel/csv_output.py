@@ -20,6 +20,7 @@ class CsvOutput(FileOutput):
         self._warned_once = set()
         self._disable_warnings = False
         self._filename = file_name
+        self._longestHeader = None
 
     @property
     def types_accepted(self):
@@ -36,6 +37,7 @@ class CsvOutput(FileOutput):
 
             if not self._writer:
                 self._fieldnames = set(to_csv.keys())
+                self._longestHeader = self._fieldnames
                 self._writer = csv.DictWriter(
                     self._log_file,
                     fieldnames=self._fieldnames,
@@ -49,12 +51,12 @@ class CsvOutput(FileOutput):
                            'Did you change key sets after your first '
                            'logger.log(TabularInput)?'.format(
                                set(self._fieldnames), set(to_csv.keys())))
-                # Read the old file 
                 with open(self._filename, "r") as old:
                     old_data = csv.DictReader(old)
                     
-                    # Reassign the keys
-                    self._fieldnames = set(to_csv.keys())
+                    # Update the header
+                    self._fieldnames = set(self._longestHeader)|set(to_csv.keys())
+                    self._longestHeader = self._fieldnames
 
                     # Change the writer with the new keys
                     self._writer = csv.DictWriter(
@@ -67,7 +69,7 @@ class CsvOutput(FileOutput):
                     self._writer.writeheader()
                     for i in old_data:
                         self._writer.writerow(i)
-
+                        
             self._writer.writerow(to_csv)
 
             for k in to_csv.keys():
