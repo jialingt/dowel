@@ -34,7 +34,8 @@ class TabularInput:
         :param val: Value that is to be stored in the table.
         """
         self._dict[self._prefix_str + str(key)] = val
-    
+
+    # Function used in a reducing key situation
     def delete(self, key):
         """Delete a key from entries for the table
         """

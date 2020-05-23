@@ -19,8 +19,8 @@ class CsvOutput(FileOutput):
         self._fieldnames = None
         self._warned_once = set()
         self._disable_warnings = False
+        # Store the name of file_name, preparing to reread the stored data from this file
         self._filename = file_name
-        self._longestHeader = None
 
     @property
     def types_accepted(self):
@@ -37,36 +37,34 @@ class CsvOutput(FileOutput):
 
             if not self._writer:
                 self._fieldnames = set(to_csv.keys())
-                self._longestHeader = self._fieldnames
+                # self._longestHeader = self._fieldnames
                 self._writer = csv.DictWriter(
                     self._log_file,
                     fieldnames=self._fieldnames,
                     extrasaction='ignore')
                 self._writer.writeheader()
 
+            # If the current keys are not inconsistent with the original keys
             if to_csv.keys() != self._fieldnames:
-                self._warn('Inconsistent TabularInput keys detected. '
-                           'CsvOutput keys: {}. '
-                           'TabularInput keys: {}. '
-                           'Did you change key sets after your first '
-                           'logger.log(TabularInput)?'.format(
-                               set(self._fieldnames), set(to_csv.keys())))
+
                 with open(self._filename, "r") as old:
+                    # Read the data from current file which contain all information stored previously
                     old_data = csv.DictReader(old)
-                    
-                    # Update the header
-                    self._fieldnames = set(self._longestHeader)|set(to_csv.keys())
-                    self._longestHeader = self._fieldnames
 
-                    # Change the writer with the new keys
-                    self._writer = csv.DictWriter(
-                        self._log_file,
-                        fieldnames=self._fieldnames,
-                        extrasaction='ignore')
+                    # Update the header with new keys
+                    # For example: old iteration key: 1,2,3 new iteration key: 4
+                    # The longestHeader will be updated as: 1,2,3,4
+                    self._fieldnames = set(self._fieldnames)|set(to_csv.keys())
 
-                    # Write the old data from the start of the file
+                    # Change the writer contains the new keys
+                    self._writer.fieldnames = self._fieldnames
+
+                    # Seek(0) means write from the start of the file
                     self._log_file.seek(0)
                     self._writer.writeheader()
+
+                    # Writerow function will map dictionaries onto output rows
+                    # Rewrite the old_data into the file
                     for i in old_data:
                         self._writer.writerow(i)
                         
