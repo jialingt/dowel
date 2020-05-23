@@ -35,6 +35,12 @@ class TabularInput:
         """
         self._dict[self._prefix_str + str(key)] = val
 
+    # Function used in a reducing key situation
+    def delete(self, key):
+        """Delete a key from entries for the table
+        """
+        self._dict.pop(key)
+
     def mark(self, key):
         """Mark key as recorded."""
         self._recorded.add(key)

@@ -1,13 +1,11 @@
 import csv
 import tempfile
-
 import pytest
-
 from dowel import CsvOutput, TabularInput
 from dowel.csv_output import CsvOutputWarning
 
 
-class TestCsvOutput:
+class TestInconsistent:
 
     def setup_method(self):
         self.log_file = tempfile.NamedTemporaryFile()
@@ -18,24 +16,16 @@ class TestCsvOutput:
     def teardown_method(self):
         self.log_file.close()
 
-    def test_record(self):
-        foo = 1
-        bar = 10
-        self.tabular.record('foo', foo)
-        self.tabular.record('bar', bar)
-        self.csv_output.record(self.tabular)
-        self.tabular.record('foo', foo * 2)
-        self.tabular.record('bar', bar * 2)
-        self.csv_output.record(self.tabular)
-        self.csv_output.dump()
+    def assert_csv_matches(self, correct):
+        """Check the first row of a csv file and compare it to known values."""
+        with open(self.log_file.name, 'r') as file:
+            reader = csv.DictReader(file)
 
-        correct = [
-            {'foo': str(foo), 'bar': str(bar)},
-            {'foo': str(foo * 2), 'bar': str(bar * 2)},
-        ]  # yapf: disable
-        self.assert_csv_matches(correct)
+            for correct_row in correct:
+                row = next(reader)
+                assert row == correct_row
 
-    def test_record_inconsistent(self):
+    def test_add_newkey(self):
         foo = 1
         bar = 10
         self.tabular.record('foo', foo)
@@ -53,40 +43,43 @@ class TestCsvOutput:
         ]  # yapf: disable
         self.assert_csv_matches(correct)
 
-    def test_empty_record(self):
-        self.csv_output.record(self.tabular)
-        assert not self.csv_output._writer
-
+    def test_reduce_oldkey(self):
         foo = 1
         bar = 10
+        self.tabular.record('foo', foo)
+        self.tabular.record('bar', bar * 2)
+        self.csv_output.record(self.tabular)
+        self.tabular.record('foo', foo * 2)
+        self.tabular.delete('bar')
+
+        # this should not produce a warning, because we only warn once
+        self.csv_output.record(self.tabular)
+
+        self.csv_output.dump()
+
+        correct = [
+            {'foo': str(foo), 'bar': str(bar * 2)},
+            {'foo': str(foo * 2), 'bar': ''},
+        ]  # yapf: disable
+        self.assert_csv_matches(correct)
+
+    def test_add_newkey_reduce_oldkey(self):
+        foo = 1
+        bar = 10
+        new = 5
         self.tabular.record('foo', foo)
         self.tabular.record('bar', bar)
         self.csv_output.record(self.tabular)
-        assert not self.csv_output._warned_once
 
-    def test_unacceptable_type(self):
-        with pytest.raises(ValueError):
-            self.csv_output.record('foo')
-
-    def test_disable_warnings(self):
-        foo = 1
-        bar = 10
-        self.tabular.record('foo', foo)
-        self.csv_output.record(self.tabular)
         self.tabular.record('foo', foo * 2)
-        self.tabular.record('bar', bar * 2)
-
-        self.csv_output.disable_warnings()
-
-        # this should not produce a warning, because we disabled warnings
+        self.tabular.record('new_key', new)
+        self.tabular.delete('bar')
         self.csv_output.record(self.tabular)
 
-    def assert_csv_matches(self, correct):
-        """Check the first row of a csv file and compare it to known values."""
-        with open(self.log_file.name, 'r') as file:
-            reader = csv.DictReader(file)
+        self.csv_output.dump()
 
-            for correct_row in correct:
-                row = next(reader)
-                assert row == correct_row
-
+        correct = [
+            {'foo': str(foo), 'bar': str(bar), 'new_key': ''},
+            {'foo': str(foo * 2), 'bar': '', 'new_key': str(new)},
+        ]  # yapf: disable
+        self.assert_csv_matches(correct)
